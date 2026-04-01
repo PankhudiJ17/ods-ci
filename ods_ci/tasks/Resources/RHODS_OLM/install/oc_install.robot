@@ -100,8 +100,15 @@ ${HELM_CUSTOM_VALUES_FILE}=    ${EMPTY}
 @{HELM_SET_VALUES}=    @{EMPTY}
 ${COMPONENT_NAMES}=    ${EMPTY}
 ${ORIGINAL_CLUSTER_TYPE}=    ${EMPTY}
+${SKIP_RHCL}=          ${FALSE}
+${TARGET_ARCH}=        ${EMPTY}
 
 *** Keywords ***
+Get Cluster Architecture
+    [Documentation]    Queries the cluster to determine the CPU architecture (e.g., amd64, s390x, arm64, ppc64le)
+    ${rc}    ${arch} =    Run And Return Rc And Output    oc get nodes -o jsonpath='{.items[0].status.nodeInfo.architecture}'
+    RETURN    ${arch}
+
 Install RHODS
   [Arguments]  ${cluster_type}     ${image_url}     ${install_plan_approval}
   ...    ${rhoai_version}=${EMPTY}    ${is_upgrade}=False
@@ -110,6 +117,14 @@ Install RHODS
   # Save original cluster type for future purpose
   Set Suite Variable    ${ORIGINAL_CLUSTER_TYPE}    ${cluster_type}
   Log    Saved original cluster type: "${ORIGINAL_CLUSTER_TYPE}"  console=yes
+
+  ${TARGET_ARCH} =    Get Cluster Architecture
+  Log    Detected Cluster Architecture: ${TARGET_ARCH}    console=yes
+
+  IF    "${TARGET_ARCH}" == "ppc64le"
+      Set Global Variable    ${SKIP_RHCL}    ${TRUE}
+  END
+
   # From RHOAI 3.0 onwards, managed service is no longer supported.
   # Force self-managed deployment when INSTALL_TYPE is "Cli" or "OperatorHub".
   IF    "${INSTALL_TYPE}" in ["Cli", "OperatorHub"] and "${cluster_type}" == "managed"
@@ -1300,7 +1315,11 @@ Install RHOAI Dependencies With CLI
     [Documentation]    Install dependent operators required for RHOAI installation using CLI
     Install Kueue Dependencies
     Install Leader Worker Set Operator Via Cli
-    Install Connectivity Link Operator Via Cli
+    IF    ${SKIP_RHCL} == ${FALSE}
+        Install Connectivity Link Operator Via Cli
+    ELSE
+        Log    Skipping rhcl-operator installation per user configuration.    console=yes
+    END
     Install JobSet Dependencies
     Configure MaaS Database
     Configure MaaS Gateway API

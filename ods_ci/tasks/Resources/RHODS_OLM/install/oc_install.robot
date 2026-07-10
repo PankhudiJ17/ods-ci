@@ -1074,7 +1074,7 @@ Install Connectivity Link Operator Via Cli
              ...    operators_namespace=${CONNECTIVITY_LINK_NS}    timeout=5m
         # Skip configure_connectivity_link_operator.sh for s390x architecture
         ${arch_type} =    Get Variable Value    ${ARCH_TYPE}    amd64
-        IF    '${arch_type}' != 's390x'
+        IF    '${arch_type}' != 's390x' and '${arch_type}' != 'ppc64le'
             ${rc}    ${output} =    Run And Return Rc And Output    sh tasks/Resources/RHODS_OLM/install/configure_connectivity_link_operator.sh
             Log    ${output}    console=yes
             IF    ${rc} != ${0}
